@@ -1,5 +1,6 @@
 library rive_checkbox;
 
+import 'package:collection/collection.dart' show IterableExtension;
 import 'package:flutter/services.dart';
 import 'package:flutter/widgets.dart';
 import 'package:rive/rive.dart';
@@ -12,20 +13,20 @@ class RiveCheckbox extends StatefulWidget {
   final String animationOn;
   final String animationOff;
   final String animationUnknown;
-  final bool value;
+  final bool? value;
   final bool tristate;
   final bool useArtboardSize;
-  final double width;
-  final double height;
+  final double? width;
+  final double? height;
   final Function(bool) onChanged;
 
   const RiveCheckbox({
-    Key key,
-    this.onChanged,
+    Key? key,
+    required this.onChanged,
     this.tristate = false,
     this.useArtboardSize = false,
-    this.animation,
-    bool value,
+    required this.animation,
+    bool? value,
     this.width,
     this.height,
     this.animationOn = _onAnimationName,
@@ -39,11 +40,11 @@ class RiveCheckbox extends StatefulWidget {
 }
 
 class _RiveCheckboxState extends State<RiveCheckbox> {
-  bool currentState;
-  Artboard _riveArtboard;
-  _RunSimpleAnimation _controllerOn;
-  _RunSimpleAnimation _controllerOff;
-  _RunSimpleAnimation _controllerUnknown;
+  bool? currentState;
+  Artboard? _riveArtboard;
+  late _RunSimpleAnimation _controllerOn;
+  late _RunSimpleAnimation _controllerOff;
+  late _RunSimpleAnimation _controllerUnknown;
 
   @override
   void initState() {
@@ -52,26 +53,22 @@ class _RiveCheckboxState extends State<RiveCheckbox> {
     // download this. The RiveFile just expects a list of bytes.
     rootBundle.load(widget.animation).then(
       (data) async {
-        final file = RiveFile();
-
-        // Load the RiveFile from the binary data.
-        if (file.import(data)) {
-          // The artboard is the root of the animation and gets drawn in the
-          // Rive widget.
-          final artboard = file.mainArtboard;
-          // Add a controller to play back a known animation on the main/default
-          // artboard.We store a reference to it so we can toggle playback.
-          _controllerOn = _RunSimpleAnimation(widget.animationOn);
-          _controllerOff = _RunSimpleAnimation(widget.animationOff);
-          _controllerUnknown = _RunSimpleAnimation(widget.animationUnknown);
-          artboard.addController(_controllerOn);
-          artboard.addController(_controllerUnknown);
-          artboard.addController(_controllerOff);
-          setState(() {
-            _riveArtboard = artboard;
-            _runAnimation();
-          });
-        }
+        final file = RiveFile.import(data);
+        // The artboard is the root of the animation and gets drawn in the
+        // Rive widget.
+        final artboard = file.mainArtboard;
+        // Add a controller to play back a known animation on the main/default
+        // artboard.We store a reference to it so we can toggle playback.
+        _controllerOn = _RunSimpleAnimation(widget.animationOn);
+        _controllerOff = _RunSimpleAnimation(widget.animationOff);
+        _controllerUnknown = _RunSimpleAnimation(widget.animationUnknown);
+        artboard.addController(_controllerOn);
+        artboard.addController(_controllerUnknown);
+        artboard.addController(_controllerOff);
+        setState(() {
+          _riveArtboard = artboard;
+          _runAnimation();
+        });
       },
     );
     super.initState();
@@ -91,7 +88,7 @@ class _RiveCheckboxState extends State<RiveCheckbox> {
       _controllerOn.isActive = false;
       _controllerOff.isActive = false;
       _controllerUnknown.isActive = true;
-    } else if (currentState) {
+    } else if (currentState!) {
       _controllerOff.isActive = false;
       _controllerUnknown.isActive = false;
       _controllerOn.isActive = true;
@@ -104,13 +101,15 @@ class _RiveCheckboxState extends State<RiveCheckbox> {
 
   @override
   Widget build(BuildContext context) {
-    Widget child = Rive(
-      artboard: _riveArtboard,
-      fit: BoxFit.contain,
-      useArtboardSize: widget.useArtboardSize,
-    );
+    Widget child;
     if (_riveArtboard == null) {
       child = Container();
+    } else {
+      child = Rive(
+        artboard: _riveArtboard!,
+        fit: BoxFit.contain,
+        useArtboardSize: widget.useArtboardSize,
+      );
     }
     if (widget.width != null || widget.height != null) {
       child = SizedBox(
@@ -123,13 +122,13 @@ class _RiveCheckboxState extends State<RiveCheckbox> {
       onTap: widget.onChanged == null
           ? null
           : () {
-              if (currentState == null) {
+        if (currentState == null) {
                 currentState = true;
               } else {
-                currentState = !currentState;
+                currentState = !currentState!;
               }
               _runAnimation();
-              widget.onChanged(currentState);
+              widget.onChanged(currentState!);
             },
       child: child,
     );
@@ -137,9 +136,9 @@ class _RiveCheckboxState extends State<RiveCheckbox> {
 }
 
 class _RunSimpleAnimation extends RiveAnimationController<RuntimeArtboard> {
-  _RunSimpleAnimation(this.animationName, {double mix}) : _mix = mix?.clamp(0, 1)?.toDouble() ?? 1.0;
+  _RunSimpleAnimation(this.animationName, {double? mix}) : _mix = mix?.clamp(0, 1).toDouble() ?? 1.0;
 
-  LinearAnimationInstance _instance;
+  LinearAnimationInstance? _instance;
   final String animationName;
   bool _stopOnNextApply = false;
 
@@ -148,15 +147,14 @@ class _RunSimpleAnimation extends RiveAnimationController<RuntimeArtboard> {
 
   double get mix => _mix;
 
-  set mix(double value) => _mix = value?.clamp(0, 1)?.toDouble() ?? 1;
+  set mix(double value) => _mix = value.clamp(0, 1).toDouble();
 
-  LinearAnimationInstance get instance => _instance;
+  LinearAnimationInstance? get instance => _instance;
 
   @override
   bool init(RuntimeArtboard artboard) {
-    var animation = artboard.animations.firstWhere(
+    var animation = artboard.animations.firstWhereOrNull(
       (animation) => animation is LinearAnimation && animation.name == animationName,
-      orElse: () => null,
     );
     if (animation != null) {
       _instance = LinearAnimationInstance(animation as LinearAnimation);
@@ -176,8 +174,8 @@ class _RunSimpleAnimation extends RiveAnimationController<RuntimeArtboard> {
     // stopping playback. We do this by tracking _stopOnNextApply making sure to
     // reset it when the controller is re-activated. Fixes #28 and should help
     // with issues #51 and #56.
-    _instance.animation.apply(_instance.time, coreContext: artboard, mix: mix);
-    if (!_instance.advance(elapsedSeconds)) {
+    _instance!.animation.apply(_instance!.time, coreContext: artboard, mix: mix);
+    if (!_instance!.advance(elapsedSeconds)) {
       _stopOnNextApply = true;
     }
   }
@@ -187,7 +185,7 @@ class _RunSimpleAnimation extends RiveAnimationController<RuntimeArtboard> {
     // We override onActivate to reset stopOnNextApply. This ensures that when
     // the controller is re-activated after stopping, it doesn't prematurely
     // stop itself.
-    _instance.reset();
+    _instance!.reset();
     _stopOnNextApply = false;
   }
 }
